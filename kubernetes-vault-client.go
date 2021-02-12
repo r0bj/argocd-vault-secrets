@@ -119,8 +119,6 @@ func vaultLogin(kubeToken, kubeAuthMountPath, vaultRole string) (*api.Client, er
 		"jwt": kubeToken,
 	}
 
-	// kubeAuth := "kubernetes-" + kubeEnv + "-" + sa.namespace
-	// loginPath := "/auth/" + kubeAuth + "/login"
 	loginPath := path.Join("auth", kubeAuthMountPath, "login")
 	loginPath = path.Clean(loginPath)
 
