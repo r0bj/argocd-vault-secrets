@@ -1,0 +1,62 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- https://raw.githubusercontent.com/argoproj/argo-cd/v1.8.4/manifests/install.yaml
+patches:
+- patch: |
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: argocd-cm
+    data:
+      configManagementPlugins: |
+        - name: argocd-vault-secrets
+          generate:
+            command: ["argocd-vault-secrets"]
+            args: ["./"]
+- patch: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: argocd-repo-server
+    spec:
+      template:
+        spec:
+          serviceAccountName: argocd-repo-server
+          initContainers:
+          - name: download-tools
+            image: alpine:3.13
+            command:
+            - /bin/sh
+            - -ec
+            - |
+              wget -qO /tmp/archive.tar.gz https://github.com/r0bj/argocd-vault-secrets/releases/download/0.1/argocd-vault-secrets-0.1-linux-amd64.tar.gz
+              tar xpzf /tmp/archive.tar.gz -C /tmp
+              mv /tmp/argocd-vault-secrets /custom-tools/argocd-vault-secrets
+              chmod +x /custom-tools/argocd-vault-secrets
+            volumeMounts:
+            - name: custom-tools
+              mountPath: /custom-tools
+            securityContext:
+              runAsNonRoot: true
+              runAsUser: 999
+          containers:
+          - name: argocd-repo-server
+            volumeMounts:
+            - name: custom-tools
+              mountPath: /usr/local/bin/argocd-vault-secrets
+              subPath: argocd-vault-secrets
+            env:
+            - name: AVS_VAULT_URL
+              value: https://vault:8200
+            - name: AVS_VAULT_KUBERNETES_AUTH_MOUNT_PATH
+              value: kubernetes-prod-argocd
+          volumes:
+          - name: custom-tools
+            emptyDir: {}
+- patch: |
+    - op: remove
+      path: /spec/template/spec/automountServiceAccountToken
+  target:
+    kind: Deployment
+    name: argocd-repo-server
