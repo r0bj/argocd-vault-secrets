@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"io"
 	"encoding/base64"
+	"path"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 	log "github.com/sirupsen/logrus"
@@ -17,9 +18,9 @@ import (
 )
 
 const (
-	ver string = "0.1"
+	ver string = "0.2"
 	logDateLayout string = "2006-01-02 15:04:05"
-	annotationVaultPathKey string = "fandom.com/vault-path"
+	annotationVaultPathKeySuffix string = "vault-path"
 )
 
 var (
@@ -30,6 +31,7 @@ var (
 	tokenFile = kingpin.Flag("token-file", "Token file").Default("/var/run/secrets/kubernetes.io/serviceaccount/token").Envar("AVS_TOKEN_FILE").String()
 	kubeAuthMountPath = kingpin.Flag("vault-kubernetes-auth-mount-path", "Path where the Kubernetes authentication backend is mounted in Vault").Required().Envar("AVS_VAULT_KUBERNETES_AUTH_MOUNT_PATH").String()
 	vaultRole = kingpin.Flag("vault-role", "Vault role. If not specified, current ServiceAccount name will be used as a vault role").Envar("AVS_VAULT_ROLE").String()
+	annotationPrefix = kingpin.Flag("annotation-prefix", "Annotation prefix, preferably unique domain").Envar("AVS_ANNOTATION_PREFIX").String()
 	rootPath = kingpin.Arg("root-path", "Root path").Required().String()
 )
 
@@ -97,7 +99,7 @@ func extractVaultSecretKey(value string) (string, error) {
 	return match[1], nil
 }
 
-func extractAnnotationValue(manifest map[string]interface{}) (string, error) {
+func extractAnnotationValue(manifest map[string]interface{}, annotationVaultPathKey string) (string, error) {
 	annotationValid := false
 	var vaultPath string
 	if _, ok := manifest["metadata"]; ok {
@@ -122,7 +124,7 @@ func extractAnnotationValue(manifest map[string]interface{}) (string, error) {
 	return vaultPath, nil
 }
 
-func injectVaultDataIntoManifests(manifests []map[string]interface{}) ([]map[string]interface{}, error) {
+func injectVaultDataIntoManifests(manifests []map[string]interface{}, annotationVaultPathKey string) ([]map[string]interface{}, error) {
 	kubeToken, err := ioutil.ReadFile(*tokenFile)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot read read file %s", *tokenFile)
@@ -134,7 +136,7 @@ func injectVaultDataIntoManifests(manifests []map[string]interface{}) ([]map[str
 	}
 
 	for _, manifest := range manifests {
-		vaultPath, err := extractAnnotationValue(manifest)
+		vaultPath, err := extractAnnotationValue(manifest, annotationVaultPathKey)
 		if err != nil {
 			continue
 		}
@@ -192,7 +194,7 @@ func injectVaultDataIntoManifests(manifests []map[string]interface{}) ([]map[str
 	return manifests, nil
 }
 
-func processSecrets(rootPath string) error {
+func processSecrets(rootPath, annotationVaultPathKey string) error {
 	paths, err := listYamlFiles(rootPath)
 	if err != nil {
 		return fmt.Errorf("List YAML files failed: %v", err)
@@ -203,7 +205,7 @@ func processSecrets(rootPath string) error {
 		return fmt.Errorf("Extract YAML manifests from files failed: %v", err)
 	}
 
-	manifests, err = injectVaultDataIntoManifests(manifests)
+	manifests, err = injectVaultDataIntoManifests(manifests, annotationVaultPathKey)
 	if err != nil {
 		return err
 	}
@@ -230,7 +232,14 @@ func main() {
 
 	log.Debugf("Starting version %s", ver)
 
-	if err := processSecrets(*rootPath); err != nil {
+	var annotationVaultPathKey string
+	if *annotationPrefix != "" {
+		annotationVaultPathKey = path.Join(*annotationPrefix, annotationVaultPathKeySuffix)
+	} else {
+		annotationVaultPathKey = annotationVaultPathKeySuffix
+	}
+
+	if err := processSecrets(*rootPath, annotationVaultPathKey); err != nil {
 		log.Fatal(err)
 	}
 }
