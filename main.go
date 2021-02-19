@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ver string = "0.2"
+	ver string = "0.3"
 	logDateLayout string = "2006-01-02 15:04:05"
 	annotationVaultPathKeySuffix string = "vault-path"
 )
@@ -124,6 +124,20 @@ func extractAnnotationValue(manifest map[string]interface{}, annotationVaultPath
 	return vaultPath, nil
 }
 
+func isManifestSecret(manifest map[string]interface{}) bool {
+	if _, ok := manifest["kind"]; ok {
+		if manifest["kind"] == "Secret" {
+			if _, ok := manifest["apiVersion"]; ok {
+				if manifest["apiVersion"] == "v1" {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 func injectVaultDataIntoManifests(manifests []map[string]interface{}, annotationVaultPathKey string) ([]map[string]interface{}, error) {
 	kubeToken, err := ioutil.ReadFile(*tokenFile)
 	if err != nil {
@@ -136,6 +150,10 @@ func injectVaultDataIntoManifests(manifests []map[string]interface{}, annotation
 	}
 
 	for _, manifest := range manifests {
+		if !isManifestSecret(manifest) {
+			continue
+		}
+
 		vaultPath, err := extractAnnotationValue(manifest, annotationVaultPathKey)
 		if err != nil {
 			continue
@@ -143,6 +161,15 @@ func injectVaultDataIntoManifests(manifests []map[string]interface{}, annotation
 
 		if vaultPath == "" {
 			return nil, fmt.Errorf("Vault path cannot be empty")
+		}
+
+		if _, ok := manifest["data"]; !ok {
+			log.Warn("Secret definition does not contain data field")
+			continue
+		}
+
+		if manifest["data"] == nil {
+			return nil, fmt.Errorf("Manifest field data is empty")
 		}
 
 		vaultPath = strings.TrimPrefix(vaultPath, "/")
@@ -156,39 +183,29 @@ func injectVaultDataIntoManifests(manifests []map[string]interface{}, annotation
 			return nil, fmt.Errorf("Secret %s does not exists", vaultPath)
 		}
 
-		if _, ok := manifest["data"]; ok {
-			if manifest["data"] == nil {
-				return nil, fmt.Errorf("Manifest field data is empty")
+		for manifestItemKey, manifestItemValue := range manifest["data"].(map[string]interface{}) {
+			if manifestItemValue == nil {
+				return nil, fmt.Errorf("Manifest key %s empty", manifestItemKey)
 			}
 
-			for manifestItemKey, manifestItemValue := range manifest["data"].(map[string]interface{}) {
-				if manifestItemValue == nil {
-					return nil, fmt.Errorf("Manifest key %s empty", manifestItemKey)
-				}
+			extractedValue, err := extractVaultSecretKey(manifestItemValue.(string))
+			if err != nil {
+				return nil, fmt.Errorf("Extracting value for %s failed: %v", manifestItemKey, err)
+			}
 
-				extractedValue, err := extractVaultSecretKey(manifestItemValue.(string))
-				if err != nil {
-					return nil, fmt.Errorf("Extracting value for %s failed: %v", manifestItemKey, err)
-				}
-
-				vaultKeyValid := false
-				for secretItemKey, secretItemValue := range vaultSecret.Data {
-					if extractedValue == secretItemKey {
-						manifest["data"].(map[string]interface{})[manifestItemKey] = base64.StdEncoding.EncodeToString([]byte(secretItemValue.(string)))
-						vaultKeyValid = true
-						break
-					}
-				}
-
-				if !vaultKeyValid {
-					return nil, fmt.Errorf("Cannot find key %s in secret %s", manifestItemValue, vaultPath)
+			vaultKeyValid := false
+			for secretItemKey, secretItemValue := range vaultSecret.Data {
+				if extractedValue == secretItemKey {
+					manifest["data"].(map[string]interface{})[manifestItemKey] = base64.StdEncoding.EncodeToString([]byte(secretItemValue.(string)))
+					vaultKeyValid = true
+					break
 				}
 			}
-		} else {
-			log.Warn("Secret definition does not contain data field")
-			continue	
+
+			if !vaultKeyValid {
+				return nil, fmt.Errorf("Cannot find key %s in secret %s", manifestItemValue, vaultPath)
+			}
 		}
-
 	}
 
 	return manifests, nil
