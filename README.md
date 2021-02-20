@@ -17,7 +17,7 @@ metadata:
   annotations:
     vault-path: path/to/secret # path to secret in Vault
 data:
-  password: <password-key>
+  password: <password-key> # Vault secret key between < and >
 ```
 
 Applying above secret Plugin 
