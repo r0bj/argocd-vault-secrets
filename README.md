@@ -27,7 +27,7 @@ apiVersion: v1
 metadata:
   name: example-secret
   annotations:
-    vault-path: path/to/secret # path to secret in Vault
+    vault-path: path/to/secret
 data:
   password: c2VjcmV0cGFzc3dvcmQK
 ```
