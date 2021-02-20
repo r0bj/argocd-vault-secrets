@@ -13,7 +13,7 @@ patches:
         - name: argocd-vault-secrets
           generate:
             command: ["argocd-vault-secrets"]
-            args: ["./"]
+            args: ["."]
 - patch: |
     apiVersion: apps/v1
     kind: Deployment
