@@ -20,8 +20,7 @@ data:
   password: <password-key> # Vault secret key between < and >
 ```
 
-Applying above secret Plugin 
-Plugin fetches Vault secret available under path `path/to/secret` and with key `password-key` and generates secret:
+Plugin fetches Vault secret available under path `path/to/secret` with key `password-key` and generates secret:
 ```
 kind: Secret
 apiVersion: v1
@@ -32,4 +31,4 @@ metadata:
 data:
   password: c2VjcmV0cGFzc3dvcmQK
 ```
-Value of key `password` comes from Vault.
+Value of the key `password` comes from Vault and is base64 encoded to be able to apply to kubernetes.
