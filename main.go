@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ver string = "0.5"
+	ver string = "0.6"
 	logDateLayout string = "2006-01-02 15:04:05"
 	annotationVaultPathKeySuffix string = "vault-path"
 )
@@ -27,7 +27,7 @@ var (
 	verbose = kingpin.Flag("verbose", "Verbose mode").Short('v').Envar("AVS_VERBOSE").Bool()
 	caCert = kingpin.Flag("ca-cert", "TLS CA certificate path").Envar("AVS_CA_CERT").String()
 	insecureSsl = kingpin.Flag("insecure-ssl", "Accept/Ignore all server SSL certificates").Envar("AVS_INSECURE").Bool()
-	vaultURL = kingpin.Flag("vault-url", "Vault URL").Default("https://active.vault.service.consul:8200").Envar("AVS_VAULT_URL").String()
+	vaultURL = kingpin.Flag("vault-url", "Vault URL").Required().Envar("AVS_VAULT_URL").String()
 	tokenFile = kingpin.Flag("token-file", "Token file").Default("/var/run/secrets/kubernetes.io/serviceaccount/token").Envar("AVS_TOKEN_FILE").String()
 	kubeAuthMountPath = kingpin.Flag("vault-kubernetes-auth-mount-path", "Path where the Kubernetes authentication backend is mounted in Vault").Required().Envar("AVS_VAULT_KUBERNETES_AUTH_MOUNT_PATH").String()
 	vaultRole = kingpin.Flag("vault-role", "Vault role. If not specified, current ServiceAccount name will be used as a vault role").Envar("AVS_VAULT_ROLE").String()
