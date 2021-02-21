@@ -20,7 +20,7 @@ type TokenJWTPayload struct {
 	namespace string
 }
 
-func buildHTTPClient(url string) (*http.Client, error) {
+func buildHTTPClient(url, caCert string) (*http.Client, error) {
 	if strings.HasPrefix(url, "http://") {
 		return http.DefaultClient, nil
 	}
@@ -31,15 +31,17 @@ func buildHTTPClient(url string) (*http.Client, error) {
 		caCertPool = x509.NewCertPool()
 	}
 
-	// Read in the cert file
-	sslCerts, err := ioutil.ReadFile(*CACert)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to read file %s", *CACert)
-	}
+	if caCert != "" {
+		// Read in the cert file
+		sslCerts, err := ioutil.ReadFile(caCert)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to read file %s", caCert)
+		}
 
-	// Append our cert to the system pool
-	if ok := caCertPool.AppendCertsFromPEM(sslCerts); !ok {
-		log.Info("No certs appended, using system certs only")
+		// Append our cert to the system pool
+		if ok := caCertPool.AppendCertsFromPEM(sslCerts); !ok {
+			log.Info("No certs appended, using system certs only")
+		}
 	}
 
 	// Trust the augmented cert pool in our client
@@ -87,13 +89,13 @@ func extractServiceAccountData(token string) (TokenJWTPayload, error) {
 	return tokenJWTPayload, nil
 }
 
-func vaultLogin(kubeToken, kubeAuthMountPath, vaultRole string) (*api.Client, error) {
+func vaultLogin(kubeToken, kubeAuthMountPath, vaultRole, caCert string) (*api.Client, error) {
 	sa, err := extractServiceAccountData(kubeToken)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to extract ServiceAccount from token: %v", err)
 	}
 
-	httpClient, err := buildHTTPClient(*vaultURL)
+	httpClient, err := buildHTTPClient(*vaultURL, caCert)
 	if err != nil {
 		return nil, err
 	}
