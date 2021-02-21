@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ver string = "0.4"
+	ver string = "0.5"
 	logDateLayout string = "2006-01-02 15:04:05"
 	annotationVaultPathKeySuffix string = "vault-path"
 )
@@ -26,7 +26,7 @@ const (
 var (
 	verbose = kingpin.Flag("verbose", "Verbose mode").Short('v').Envar("AVS_VERBOSE").Bool()
 	caCert = kingpin.Flag("ca-cert", "TLS CA certificate path").Envar("AVS_CA_CERT").String()
-	insecure = kingpin.Flag("insecure-ssl", "Accept/Ignore all server SSL certificates").Envar("AVS_INSECURE").Bool()
+	insecureSsl = kingpin.Flag("insecure-ssl", "Accept/Ignore all server SSL certificates").Envar("AVS_INSECURE").Bool()
 	vaultURL = kingpin.Flag("vault-url", "Vault URL").Default("https://active.vault.service.consul:8200").Envar("AVS_VAULT_URL").String()
 	tokenFile = kingpin.Flag("token-file", "Token file").Default("/var/run/secrets/kubernetes.io/serviceaccount/token").Envar("AVS_TOKEN_FILE").String()
 	kubeAuthMountPath = kingpin.Flag("vault-kubernetes-auth-mount-path", "Path where the Kubernetes authentication backend is mounted in Vault").Required().Envar("AVS_VAULT_KUBERNETES_AUTH_MOUNT_PATH").String()
@@ -144,7 +144,7 @@ func injectVaultDataIntoManifests(manifests []map[string]interface{}, annotation
 		return nil, fmt.Errorf("Cannot read read file %s", *tokenFile)
 	}
 
-	vaultClient, err := vaultLogin(string(kubeToken), *kubeAuthMountPath, *vaultRole, *caCert)
+	vaultClient, err := vaultLogin(string(kubeToken), *kubeAuthMountPath, *vaultRole, *caCert, *insecureSsl)
 	if err != nil {
 		return nil, fmt.Errorf("Vault login failed %s", err)
 	}

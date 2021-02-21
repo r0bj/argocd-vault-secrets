@@ -20,7 +20,7 @@ type TokenJWTPayload struct {
 	namespace string
 }
 
-func buildHTTPClient(url, caCert string) (*http.Client, error) {
+func buildHTTPClient(url, caCert string, insecureSsl bool) (*http.Client, error) {
 	if strings.HasPrefix(url, "http://") {
 		return http.DefaultClient, nil
 	}
@@ -47,7 +47,7 @@ func buildHTTPClient(url, caCert string) (*http.Client, error) {
 	// Trust the augmented cert pool in our client
 	tlsConfig := &tls.Config{
 		RootCAs: caCertPool,
-		InsecureSkipVerify: *insecure,
+		InsecureSkipVerify: insecureSsl,
 	}
 
 	transport := &http.Transport{
@@ -89,13 +89,13 @@ func extractServiceAccountData(token string) (TokenJWTPayload, error) {
 	return tokenJWTPayload, nil
 }
 
-func vaultLogin(kubeToken, kubeAuthMountPath, vaultRole, caCert string) (*api.Client, error) {
+func vaultLogin(kubeToken, kubeAuthMountPath, vaultRole, caCert string, insecureSsl bool) (*api.Client, error) {
 	sa, err := extractServiceAccountData(kubeToken)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to extract ServiceAccount from token: %v", err)
 	}
 
-	httpClient, err := buildHTTPClient(*vaultURL, caCert)
+	httpClient, err := buildHTTPClient(*vaultURL, caCert, insecureSsl)
 	if err != nil {
 		return nil, err
 	}
